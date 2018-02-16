@@ -7,29 +7,26 @@ import (
 )
 
 type webRequestError struct {
-	err       stackTracer
-	httpcode  int
-	tag       LogTag
-	subsystem string
+	err      stackTracer
+	httpcode int
+	tag      Tag
 }
 
-func WebRequestErr(err error, subsystem string, tag LogTag, httpcode int) error {
+func WebRequestErr(err error, httpcode int, tag Tag) error {
 	st, ok := err.(stackTracer)
 	if !ok {
 		// callers should wrap the error so that the stacktrace works correctly
 		e := errors.WithStack(err)
 		return &webRequestError{
-			err:       e.(stackTracer),
-			httpcode:  httpcode,
-			tag:       tag,
-			subsystem: subsystem,
+			err:      e.(stackTracer),
+			httpcode: httpcode,
+			tag:      tag,
 		}
 	}
 	return &webRequestError{
-		err:       st,
-		httpcode:  httpcode,
-		tag:       tag,
-		subsystem: subsystem,
+		err:      st,
+		httpcode: httpcode,
+		tag:      tag,
 	}
 }
 
@@ -38,7 +35,7 @@ func (w *webRequestError) HttpCode() int {
 }
 
 func (w *webRequestError) Error() string {
-	return fmt.Sprintf("%s: %s: %s httpcode: %v ", w.subsystem, w.tag, w.err.Error(), w.httpcode)
+	return fmt.Sprintf("%s: httpcode: %v ", w.err.Error(), w.httpcode)
 }
 
 func (w *webRequestError) Trace() string {
@@ -53,3 +50,6 @@ func (w *webRequestError) Cause() error {
 	return w.err
 }
 
+func (w *webRequestError) Tag() Tag {
+	return w.tag
+}
