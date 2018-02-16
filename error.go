@@ -1,8 +1,9 @@
 package fault
 
 import (
-	"github.com/pkg/errors"
 	"fmt"
+
+	"github.com/pkg/errors"
 )
 
 // This interface allows use of the Cause method via type assertion. errors created by
@@ -27,6 +28,11 @@ type httpCodeError interface {
 	HttpCode() int
 	causer
 	error
+}
+
+type tagger interface {
+	Tag() Tag
+	causer
 }
 
 func ErrorWithTrace(err error) string {
@@ -71,14 +77,39 @@ func HttpCode(err error) (int, bool) {
 	return 0, false
 }
 
-// func Level(err error) (LogTag, bool)
+func LogTag(err error) Tag {
+	tag := Err
+	for err != nil {
+		t, ok := err.(tagger)
+		if !ok {
+			c, ok := err.(causer)
+			if !ok {
+				return tag
+			}
+			err = c.Cause()
+			continue
+		}
+		if t.Tag() != tag {
+			tag = t.Tag()
+		}
+		if tag == NoLog {
+			return NoLog
+		}
+		c, ok := err.(causer)
+		if !ok {
+			return tag
+		}
+		err = c.Cause()
+	}
+	return tag
+}
 
 // func SubSystem(err error) (Subsystem, bool)
 
-type LogTag int
+type Tag int
 
 const (
-	NoLog LogTag = iota
+	NoLog      Tag = iota
 	Success
 	Info
 	Err
@@ -86,8 +117,8 @@ const (
 	SysFailure
 )
 
-var log_tags = [...]string{
-	"not for logging",
+var tags = [...]string{
+	"no log needed",
 	"success",
 	"info",
 	"error",
@@ -95,17 +126,17 @@ var log_tags = [...]string{
 	"system failure",
 }
 
-func (l LogTag) String() string {
-	return log_tags[int(l)]
+func (l Tag) String() string {
+	return tags[int(l)]
 }
 
 type appError struct {
 	err       stackTracer
-	tag       LogTag
+	tag       Tag
 	subsystem string
 }
 
-func Error(err error, subsystem string, tag LogTag) error {
+func Error(err error, subsystem string, tag Tag) error {
 	st, ok := err.(stackTracer)
 	if !ok {
 		// callers should wrap the error so that the stacktrace works correctly
@@ -138,4 +169,8 @@ func (a *appError) Trace() string {
 
 func (a *appError) Cause() error {
 	return a.err
+}
+
+func (a *appError) Tag() Tag {
+	return a.tag
 }

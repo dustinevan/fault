@@ -12,13 +12,13 @@ import (
 
 func main() {
 	orig := errors.Wrap(fmt.Errorf("db error"), "found this")
-	web := fault.WebRequestErr(orig, "auth", fault.Err, http.StatusInternalServerError)
+	web := fault.WebRequestErr(orig, http.StatusInternalServerError, fault.Bug)
 	err := errors.Wrap(web, "saw this error")
 	err = errors.Wrap(err, "saw this error again")
 
 	alert := fault.AlertErr(err, "database", fault.SysFailure)
 
-	faulterr := fault.Error(alert, "email", fault.Err)
+	faulterr := fault.Error(alert, "email", fault.NoLog)
 
 	log.Println(errors.Cause(orig))
 	log.Println(errors.Cause(web))
@@ -50,78 +50,95 @@ func main() {
 	log.Println(alert)
 	log.Println(faulterr)
 
+	e0 := fault.WebRequestErr(fmt.Errorf("something happened"), http.StatusInternalServerError, fault.NoLog)
+
+	fmt.Println(e0)
+
+	log.Println(fault.LogTag(orig))
+	log.Println(fault.LogTag(web))
+	log.Println(fault.LogTag(err))
+	log.Println(fault.LogTag(alert))
+	log.Println(fault.LogTag(faulterr))
+	log.Println(fault.LogTag(e0))
+
 }
 
 /*
-2018/02/14 13:39:56 db error
-2018/02/14 13:39:56 db error
-2018/02/14 13:39:56 db error
-2018/02/14 13:39:56 db error
-2018/02/14 13:39:56 db error
-2018/02/14 13:39:56
-2018/02/14 13:39:56 main.main
-	/Users/dustinevan/code/go/src/github.com/dustinevan/fault/examples/examples.go:14:runtime.main
-	/usr/local/Cellar/go/1.9.2/libexec/src/runtime/proc.go:195:runtime.goexit
-	/usr/local/Cellar/go/1.9.2/libexec/src/runtime/asm_amd64.s:2337:
-2018/02/14 13:39:56 main.main
-	/Users/dustinevan/code/go/src/github.com/dustinevan/fault/examples/examples.go:14:runtime.main
-	/usr/local/Cellar/go/1.9.2/libexec/src/runtime/proc.go:195:runtime.goexit
-	/usr/local/Cellar/go/1.9.2/libexec/src/runtime/asm_amd64.s:2337:
-2018/02/14 13:39:56 main.main
-	/Users/dustinevan/code/go/src/github.com/dustinevan/fault/examples/examples.go:14:runtime.main
-	/usr/local/Cellar/go/1.9.2/libexec/src/runtime/proc.go:195:runtime.goexit
-	/usr/local/Cellar/go/1.9.2/libexec/src/runtime/asm_amd64.s:2337:
-2018/02/14 13:39:56 main.main
-	/Users/dustinevan/code/go/src/github.com/dustinevan/fault/examples/examples.go:14:runtime.main
-	/usr/local/Cellar/go/1.9.2/libexec/src/runtime/proc.go:195:runtime.goexit
-	/usr/local/Cellar/go/1.9.2/libexec/src/runtime/asm_amd64.s:2337:
-2018/02/14 13:39:56 0 false
-2018/02/14 13:39:56 500 true
-2018/02/14 13:39:56 500 true
-2018/02/14 13:39:56 500 true
-2018/02/14 13:39:56 500 true
-2018/02/14 13:39:56 found this: db error
+2018/02/15 20:58:36 db error
+2018/02/15 20:58:36 db error
+2018/02/15 20:58:36 db error
+2018/02/15 20:58:36 db error
+2018/02/15 20:58:36 db error
+2018/02/15 20:58:36
+2018/02/15 20:58:36 main.main
+        /Users/dustincurrie/code/go/src/github.com/dustinevan/fault/examples/examples.go:14:runtime.main
+        /usr/local/Cellar/go/1.9.2/libexec/src/runtime/proc.go:195:runtime.goexit
+        /usr/local/Cellar/go/1.9.2/libexec/src/runtime/asm_amd64.s:2337:
+2018/02/15 20:58:36 main.main
+        /Users/dustincurrie/code/go/src/github.com/dustinevan/fault/examples/examples.go:14:runtime.main
+        /usr/local/Cellar/go/1.9.2/libexec/src/runtime/proc.go:195:runtime.goexit
+        /usr/local/Cellar/go/1.9.2/libexec/src/runtime/asm_amd64.s:2337:
+2018/02/15 20:58:36 main.main
+        /Users/dustincurrie/code/go/src/github.com/dustinevan/fault/examples/examples.go:14:runtime.main
+        /usr/local/Cellar/go/1.9.2/libexec/src/runtime/proc.go:195:runtime.goexit
+        /usr/local/Cellar/go/1.9.2/libexec/src/runtime/asm_amd64.s:2337:
+2018/02/15 20:58:36 main.main
+        /Users/dustincurrie/code/go/src/github.com/dustinevan/fault/examples/examples.go:14:runtime.main
+        /usr/local/Cellar/go/1.9.2/libexec/src/runtime/proc.go:195:runtime.goexit
+        /usr/local/Cellar/go/1.9.2/libexec/src/runtime/asm_amd64.s:2337:
+2018/02/15 20:58:36 0 false
+2018/02/15 20:58:36 500 true
+2018/02/15 20:58:36 500 true
+2018/02/15 20:58:36 500 true
+2018/02/15 20:58:36 500 true
+2018/02/15 20:58:36 found this: db error
 
-2018/02/14 13:39:56 auth: error: found this: db error httpcode: 500
+2018/02/15 20:58:36 found this: db error: httpcode: 500
 main.main
-	/Users/dustinevan/code/go/src/github.com/dustinevan/fault/examples/examples.go:14:runtime.main
-	/usr/local/Cellar/go/1.9.2/libexec/src/runtime/proc.go:195:runtime.goexit
-	/usr/local/Cellar/go/1.9.2/libexec/src/runtime/asm_amd64.s:2337:
-2018/02/14 13:39:56 saw this error again: saw this error: auth: error: found this: db error httpcode: 500
+        /Users/dustincurrie/code/go/src/github.com/dustinevan/fault/examples/examples.go:14:runtime.main
+        /usr/local/Cellar/go/1.9.2/libexec/src/runtime/proc.go:195:runtime.goexit
+        /usr/local/Cellar/go/1.9.2/libexec/src/runtime/asm_amd64.s:2337:
+2018/02/15 20:58:36 saw this error again: saw this error: found this: db error: httpcode: 500
 main.main
-	/Users/dustinevan/code/go/src/github.com/dustinevan/fault/examples/examples.go:14:runtime.main
-	/usr/local/Cellar/go/1.9.2/libexec/src/runtime/proc.go:195:runtime.goexit
-	/usr/local/Cellar/go/1.9.2/libexec/src/runtime/asm_amd64.s:2337:
-2018/02/14 13:39:56
+        /Users/dustincurrie/code/go/src/github.com/dustinevan/fault/examples/examples.go:14:runtime.main
+        /usr/local/Cellar/go/1.9.2/libexec/src/runtime/proc.go:195:runtime.goexit
+        /usr/local/Cellar/go/1.9.2/libexec/src/runtime/asm_amd64.s:2337:
+2018/02/15 20:58:36
 <alert>
-{"Tag":5,"Subsystem":"database","Msg":"saw this error again: saw this error: auth: error: found this: db error httpcode: 500 main.main\n\t/Users/dustincurrie/code/go/src/github.com/dustinevan/fault/examples/examples.go:14:runtime.main\n\t/usr/local/Cellar/go/1.9.2/libexec/src/runtime/proc.go:195:runtime.goexit\n\t/usr/local/Cellar/go/1.9.2/libexec/src/runtime/asm_amd64.s:2337:"}
+{"Tag":5,"Subsystem":"database","Msg":"saw this error again: saw this error: found this: db error: httpcode: 500 main.main\n\t/Users/dustincurrie/code/go/src/github.com/dustinevan/fault/examples/examples.go:14:runtime.main\n\t/usr/local/Cellar/go/1.9.2/libexec/src/runtime/proc.go:195:runtime.goexit\n\t/usr/local/Cellar/go/1.9.2/libexec/src/runtime/asm_amd64.s:2337:"}
 </alert>
-database: system failure: saw this error again: saw this error: auth: error: found this: db error httpcode: 500
+database: system failure: saw this error again: saw this error: found this: db error: httpcode: 500
 main.main
-	/Users/dustinevan/code/go/src/github.com/dustinevan/fault/examples/examples.go:14:runtime.main
-	/usr/local/Cellar/go/1.9.2/libexec/src/runtime/proc.go:195:runtime.goexit
-	/usr/local/Cellar/go/1.9.2/libexec/src/runtime/asm_amd64.s:2337:
-2018/02/14 13:39:56 email: error:
+        /Users/dustincurrie/code/go/src/github.com/dustinevan/fault/examples/examples.go:14:runtime.main
+        /usr/local/Cellar/go/1.9.2/libexec/src/runtime/proc.go:195:runtime.goexit
+        /usr/local/Cellar/go/1.9.2/libexec/src/runtime/asm_amd64.s:2337:
+2018/02/15 20:58:36 email: no log needed:
 <alert>
-{"Tag":5,"Subsystem":"database","Msg":"saw this error again: saw this error: auth: error: found this: db error httpcode: 500 main.main\n\t/Users/dustincurrie/code/go/src/github.com/dustinevan/fault/examples/examples.go:14:runtime.main\n\t/usr/local/Cellar/go/1.9.2/libexec/src/runtime/proc.go:195:runtime.goexit\n\t/usr/local/Cellar/go/1.9.2/libexec/src/runtime/asm_amd64.s:2337:"}
+{"Tag":5,"Subsystem":"database","Msg":"saw this error again: saw this error: found this: db error: httpcode: 500 main.main\n\t/Users/dustincurrie/code/go/src/github.com/dustinevan/fault/examples/examples.go:14:runtime.main\n\t/usr/local/Cellar/go/1.9.2/libexec/src/runtime/proc.go:195:runtime.goexit\n\t/usr/local/Cellar/go/1.9.2/libexec/src/runtime/asm_amd64.s:2337:"}
 </alert>
-database: system failure: saw this error again: saw this error: auth: error: found this: db error httpcode: 500
+database: system failure: saw this error again: saw this error: found this: db error: httpcode: 500
 main.main
-	/Users/dustinevan/code/go/src/github.com/dustinevan/fault/examples/examples.go:14:runtime.main
-	/usr/local/Cellar/go/1.9.2/libexec/src/runtime/proc.go:195:runtime.goexit
-	/usr/local/Cellar/go/1.9.2/libexec/src/runtime/asm_amd64.s:2337:
-2018/02/14 13:39:56 found this: db error
-2018/02/14 13:39:56 auth: error: found this: db error httpcode: 500
-2018/02/14 13:39:56 saw this error again: saw this error: auth: error: found this: db error httpcode: 500
-2018/02/14 13:39:56
+        /Users/dustincurrie/code/go/src/github.com/dustinevan/fault/examples/examples.go:14:runtime.main
+        /usr/local/Cellar/go/1.9.2/libexec/src/runtime/proc.go:195:runtime.goexit
+        /usr/local/Cellar/go/1.9.2/libexec/src/runtime/asm_amd64.s:2337:
+2018/02/15 20:58:36 found this: db error
+2018/02/15 20:58:36 found this: db error: httpcode: 500
+2018/02/15 20:58:36 saw this error again: saw this error: found this: db error: httpcode: 500
+2018/02/15 20:58:36
 <alert>
-{"Tag":5,"Subsystem":"database","Msg":"saw this error again: saw this error: auth: error: found this: db error httpcode: 500 main.main\n\t/Users/dustincurrie/code/go/src/github.com/dustinevan/fault/examples/examples.go:14:runtime.main\n\t/usr/local/Cellar/go/1.9.2/libexec/src/runtime/proc.go:195:runtime.goexit\n\t/usr/local/Cellar/go/1.9.2/libexec/src/runtime/asm_amd64.s:2337:"}
+{"Tag":5,"Subsystem":"database","Msg":"saw this error again: saw this error: found this: db error: httpcode: 500 main.main\n\t/Users/dustincurrie/code/go/src/github.com/dustinevan/fault/examples/examples.go:14:runtime.main\n\t/usr/local/Cellar/go/1.9.2/libexec/src/runtime/proc.go:195:runtime.goexit\n\t/usr/local/Cellar/go/1.9.2/libexec/src/runtime/asm_amd64.s:2337:"}
 </alert>
-database: system failure: saw this error again: saw this error: auth: error: found this: db error httpcode: 500
-2018/02/14 13:39:56 email: error:
+database: system failure: saw this error again: saw this error: found this: db error: httpcode: 500
+2018/02/15 20:58:36 email: no log needed:
 <alert>
-{"Tag":5,"Subsystem":"database","Msg":"saw this error again: saw this error: auth: error: found this: db error httpcode: 500 main.main\n\t/Users/dustincurrie/code/go/src/github.com/dustinevan/fault/examples/examples.go:14:runtime.main\n\t/usr/local/Cellar/go/1.9.2/libexec/src/runtime/proc.go:195:runtime.goexit\n\t/usr/local/Cellar/go/1.9.2/libexec/src/runtime/asm_amd64.s:2337:"}
+{"Tag":5,"Subsystem":"database","Msg":"saw this error again: saw this error: found this: db error: httpcode: 500 main.main\n\t/Users/dustincurrie/code/go/src/github.com/dustinevan/fault/examples/examples.go:14:runtime.main\n\t/usr/local/Cellar/go/1.9.2/libexec/src/runtime/proc.go:195:runtime.goexit\n\t/usr/local/Cellar/go/1.9.2/libexec/src/runtime/asm_amd64.s:2337:"}
 </alert>
-database: system failure: saw this error again: saw this error: auth: error: found this: db error httpcode: 500
-
- */
+database: system failure: saw this error again: saw this error: found this: db error: httpcode: 500
+something happened: httpcode: 500
+2018/02/15 20:58:36 error
+2018/02/15 20:58:36 bug
+2018/02/15 20:58:36 bug
+2018/02/15 20:58:36 bug
+2018/02/15 20:58:36 no log needed
+2018/02/15 20:58:36 no log needed
+*/

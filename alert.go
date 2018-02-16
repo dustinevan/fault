@@ -11,12 +11,12 @@ var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
 type alertError struct {
 	err       stackTracer
-	Tag       LogTag
+	Tag       Tag
 	Subsystem string
 	Msg       string
 }
 
-func AlertErr(err error, subsystem string, tag LogTag) error {
+func AlertErr(err error, subsystem string, tag Tag) error {
 	st, ok := err.(stackTracer)
 	if !ok {
 		// callers should wrap the error so that the stacktrace works correctly
@@ -61,4 +61,8 @@ func (a *alertError) jsonstring() string {
 
 func (a *alertError) Cause() error {
 	return a.err
+}
+
+func (a *alertError) LogTag() Tag {
+	return a.Tag
 }
