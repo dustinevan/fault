@@ -6,6 +6,7 @@ import (
 	"github.com/pkg/errors"
 	"strconv"
 	"github.com/json-iterator/go"
+	"net/http"
 )
 
 var json = jsoniter.ConfigCompatibleWithStandardLibrary
@@ -125,6 +126,43 @@ func HttpCode(h int) ErrOption {
 	return func(a *appError) {
 		a.httpcode = h
 	}
+}
+
+func HttpUnauthorized() ErrOption {
+	return HttpCode(http.StatusUnauthorized)
+}
+
+func HttpServerError() ErrOption {
+	return HttpCode(http.StatusInternalServerError)
+}
+
+func HttpBadRequest() ErrOption {
+	return HttpCode(http.StatusBadRequest)
+}
+
+func HttpNotFound() ErrOption {
+	return HttpCode(http.StatusNotFound)
+}
+
+func DontLog() ErrOption {
+	return Type(NoLog)
+}
+
+func LogSuccess() ErrOption {
+	return Type(Success)
+}
+func LogInfo() ErrOption {
+	return Type(Info)
+}
+func LogError() ErrOption {
+	return Type(Err)
+}
+func LogBug() ErrOption {
+	return Type(Bug)
+}
+
+func LogFailure() ErrOption {
+	return Type(SysFailure)
 }
 
 type appError struct {
