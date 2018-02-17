@@ -4,7 +4,11 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
+	"strconv"
+	"github.com/json-iterator/go"
 )
+
+var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
 // This interface allows use of the Cause method via type assertion. errors created by
 // errors.Wrap, errors.Wrapf, errors.WithMessage, or errors.WithStack implement this interface
@@ -19,49 +23,14 @@ type stackTracer interface {
 	error
 }
 
-type tracePrinter interface {
-	Trace() string
-}
-
 // Interfaces that inherit cause are discoverable during the cause chain loop. See laag.HttpCode(err)
 type httpCodeError interface {
-	HttpCode() int
+	HttpCode() (int, bool)
 	causer
 	error
 }
 
-type tagger interface {
-	Tag() Tag
-	causer
-}
-
-func ErrorWithTrace(err error) string {
-	return err.Error() + "\n" + Trace(err)
-}
-
-func Trace(err error) string {
-	trace := ""
-	for err != nil {
-		c, ok := err.(causer)
-		if !ok {
-			t, ok := err.(tracePrinter)
-			if !ok {
-				return trace
-			}
-			return t.Trace()
-		}
-		t, ok := err.(tracePrinter)
-		if !ok {
-			err = c.Cause()
-			continue
-		}
-		trace = t.Trace()
-		err = c.Cause()
-	}
-	return trace
-}
-
-func HttpCode(err error) (int, bool) {
+func GetHttpCode(err error) (int, bool) {
 	for err != nil {
 		c, ok := err.(causer)
 		if !ok {
@@ -72,44 +41,15 @@ func HttpCode(err error) (int, bool) {
 			err = c.Cause()
 			continue
 		}
-		return h.HttpCode(), true
+		return h.HttpCode()
 	}
 	return 0, false
 }
 
-func LogTag(err error) Tag {
-	tag := Err
-	for err != nil {
-		t, ok := err.(tagger)
-		if !ok {
-			c, ok := err.(causer)
-			if !ok {
-				return tag
-			}
-			err = c.Cause()
-			continue
-		}
-		if t.Tag() != tag {
-			tag = t.Tag()
-		}
-		if tag == NoLog {
-			return NoLog
-		}
-		c, ok := err.(causer)
-		if !ok {
-			return tag
-		}
-		err = c.Cause()
-	}
-	return tag
-}
-
-// func SubSystem(err error) (Subsystem, bool)
-
-type Tag int
+type typ int
 
 const (
-	NoLog      Tag = iota
+	NoLog typ = iota
 	Success
 	Info
 	Err
@@ -117,7 +57,7 @@ const (
 	SysFailure
 )
 
-var tags = [...]string{
+var typs = [...]string{
 	"no log needed",
 	"success",
 	"info",
@@ -126,37 +66,126 @@ var tags = [...]string{
 	"system failure",
 }
 
-func (l Tag) String() string {
-	return tags[int(l)]
+func (t typ) String() string {
+	return typs[int(t)]
+}
+
+func (t *typ) UnmarshalJSON(b []byte) error {
+	for i, p := range typs {
+		if p == string(b) {
+			*t = typ(i)
+			return nil
+		}
+	}
+	*t = NoLog
+	return nil
+}
+
+func (t *typ) MarshalJSON() ([]byte, error) {
+	return []byte("\"" + t.String() + "\""), nil
+}
+const OpeningAlertTag = "\n<alert>\n"
+const ClosingAlertTag = "\n</alert>\n"
+
+type AlertTag struct {
+	Msg       string
+	Type       typ
+	Subsystem string
+}
+
+type ErrOption func(*appError)
+
+func WithTrace() ErrOption {
+	return func(a *appError) {
+		a.includeTrace = true
+	}
+}
+
+func Alert(subsystem string, tag typ) ErrOption {
+	return func(a *appError) {
+		a.isAlert = true
+		a.subsystem = subsystem
+		a.tag = tag
+	}
+}
+
+func Type(t typ) ErrOption {
+	return func(a *appError) {
+		a.tag = t
+	}
+}
+
+func System(s string) ErrOption {
+	return func(a *appError) {
+		a.subsystem = s
+	}
+}
+
+func HttpCode(h int) ErrOption {
+	return func(a *appError) {
+		a.httpcode = h
+	}
 }
 
 type appError struct {
-	err       stackTracer
-	tag       Tag
-	subsystem string
+	err          stackTracer
+	tag          typ
+	subsystem    string
+	httpcode     int
+	includeTrace bool
+	isAlert      bool
 }
 
-func Error(err error, subsystem string, tag Tag) error {
+func Error(err error, opts ...ErrOption) error {
 	st, ok := err.(stackTracer)
 	if !ok {
-		// callers should wrap the error so that the stacktrace works correctly
 		e := errors.WithStack(err)
-		return &appError{
-			err:       e.(stackTracer),
-			tag:       tag,
-			subsystem: subsystem,
+		a := &appError{
+			err: e.(stackTracer),
+			tag: Err,
 		}
-
+		for _, opt := range opts {
+			opt(a)
+		}
+		return a
 	}
-	return &appError{
-		err:       st,
-		tag:       tag,
-		subsystem: subsystem,
+	a := &appError{
+		err: st,
+		tag: Err,
 	}
+	for _, opt := range opts {
+		opt(a)
+	}
+	return a
 }
 
 func (a *appError) Error() string {
-	return fmt.Sprintf("%s: %s: %s", a.subsystem, a.tag, a.err.Error())
+	e := a.builderror()
+	if a.isAlert == true {
+		b, err := json.Marshal(a.Alert())
+		if err != nil {
+			return e + ": unable to marshal alert: " + err.Error()
+		}
+		return e + OpeningAlertTag + string(b) + ClosingAlertTag
+	}
+	return e
+}
+
+func (a *appError) builderror() string {
+	if a.tag == NoLog {
+		return ""
+	}
+	e := fmt.Sprintf("%s: %s", a.tag, a.err.Error())
+	if a.subsystem != "" {
+		e = a.subsystem + ": " + e
+	}
+	if a.httpcode != 0 {
+		e += ": http code " + strconv.Itoa(a.httpcode)
+	}
+	if a.includeTrace == true {
+		e += "\n" + a.Trace()
+	}
+	return e
 }
 
 func (a *appError) Trace() string {
@@ -167,10 +196,21 @@ func (a *appError) Trace() string {
 	return s
 }
 
+func (a *appError) Alert() AlertTag {
+	return AlertTag{
+		Msg: a.builderror(),
+		Type: a.tag,
+		Subsystem: a.subsystem,
+	}
+}
+
 func (a *appError) Cause() error {
 	return a.err
 }
 
-func (a *appError) Tag() Tag {
-	return a.tag
+func (a *appError) HttpCode() (int, bool) {
+	if a.httpcode == 0 {
+		return 0, false
+	}
+	return a.httpcode, true
 }
