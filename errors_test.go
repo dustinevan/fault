@@ -12,7 +12,7 @@ func TestHttpCode(t *testing.T) {
 	orig := errors.Wrap(fmt.Errorf("db error"), "found this")
 	web := Error(orig, HttpCode(http.StatusInternalServerError), WithTrace())
 	//fmt.Println(web)
-	//fmt.Println(GetHttpCode(web))
+	//fmt.Println(HttpStatus(web))
 	alert := Error(web, Alert("Database", SysFailure))
 	//fmt.Println(alert)
 	trace := Error(alert, WithTrace())

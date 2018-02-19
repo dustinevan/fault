@@ -31,7 +31,7 @@ type httpCodeError interface {
 	error
 }
 
-func GetHttpCode(err error) (int, bool) {
+func HttpStatus(err error) (int, bool) {
 	for err != nil {
 		c, ok := err.(causer)
 		if !ok {
