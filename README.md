@@ -15,7 +15,7 @@ func GetData(key string) (*stuff, error) {
     ... database query ...
     if err != nil {
       err = errors.Wrap(err, "db connection gone")
-      
+      err = fault.WithHttpStatus(err, http.StatusInternalServerError)
       return nil, err
     ... 
  }
@@ -24,7 +24,6 @@ func GetData(key string) (*stuff, error) {
  func GetDataService(key string) (*stuff, error) {
     s, err := GetData(key)
     if err != nil {
-      err = fault.WithHttpStatus(err, http.StatusInternalServerError)
       err = fault.WithAlert(err)
       return nil, errors.Wrap(err, "service failed to get the data")
     }
