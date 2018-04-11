@@ -1,6 +1,8 @@
 package fault
 
 import (
+	"fmt"
+
 	"github.com/pkg/errors"
 )
 
@@ -30,26 +32,36 @@ type alerter interface {
 
 type httpStatus struct {
 	status int
-	err    error
-}
-
-func (h httpStatus) HttpStatus() int {
-	return h.status
-}
-
-func (h httpStatus) Cause() error {
-	return h.err
-}
-
-func (h httpStatus) Error() string {
-	return h.err.Error()
+	cause  error
 }
 
 func WithHttpStatus(err error, status int) error {
-	return httpStatus{
-		status: status,
-		err:    err,
+	if err == nil {
+		return nil
 	}
+
+	return &httpStatus{
+		status: status,
+		cause:  errors.Wrap(err, fmt.Sprintf("http status %v", status)),
+	}
+}
+
+func (h *httpStatus) HttpStatus() int {
+	return h.status
+}
+
+func (h *httpStatus) Cause() error { return h.cause }
+
+func (h *httpStatus) Error() string {
+	return h.cause.Error()
+}
+
+func (h *httpStatus) Format(s fmt.State, verb rune) {
+	if err, ok := h.cause.(fmt.Formatter); ok {
+		err.Format(s, verb)
+		return
+	}
+	panic(h.cause.Error() + " does not implement the fmt.Formatter interface.")
 }
 
 func HttpStatus(err error) (int, bool) {
@@ -69,24 +81,37 @@ func HttpStatus(err error) (int, bool) {
 }
 
 type alertErr struct {
-	err error
+	cause error
 }
 
 func WithAlert(err error) error {
+	if err == nil {
+		return nil
+	}
+	err = errors.Wrap(err, "alert")
+
 	return &alertErr{
-		err: err,
+		cause: err,
 	}
 }
 
-func (a alertErr) Error() string {
-	return a.err.Error()
+func (a *alertErr) Error() string {
+	return a.cause.Error()
 }
 
-func (a alertErr) Cause() error {
-	return a.err
+func (a *alertErr) Cause() error {
+	return a.cause
 }
 
-func (a alertErr) Alert() {
+func (a *alertErr) Alert() {
+}
+
+func (a *alertErr) Format(s fmt.State, verb rune) {
+	if err, ok := a.cause.(fmt.Formatter); ok {
+		err.Format(s, verb)
+		return
+	}
+	panic(a.cause.Error() + " does not implement the fmt.Formatter interface.")
 }
 
 func IsAlert(err error) bool {
