@@ -1,7 +1,7 @@
-# Problem: 
+### Problem: 
 Given the discussion layed out here[https://dave.cheney.net/2016/04/27/dont-just-check-errors-handle-them-gracefully], there are times when a middle teir function is the best place to know what the system should do with an error. 
 
-# Solution:
+### Solution:
 fault shows how to wrap errors with new opaque functionality without breaking errors.Cause() or stack tracing. For my use case I've added the ability to add HTTP status codes and an alert flag. Because httpStatus and alert are opaque errors, like those in github.com/pkg/errors, they can be rewrapped with any error that implements the causer interface described in github.com/pkg/errors. 
 ```golang
 type causer interface {
