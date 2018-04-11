@@ -1,7 +1,8 @@
-# 
-fault builds on the ideas in github.com/pkg/errors to allow systems to add alert flags or HTTP status codes to errors being passed back through the call stack. Any layer can suggest an HTTP status or flag an error as an alert--meaning some message needs to be sent to monitoring systems. 
 # Problem: 
-Given the discussion layed out here[https://dave.cheney.net/2016/04/27/dont-just-check-errors-handle-them-gracefully], there are times when a middle teir function is the best place to know what the system should do with an error. fault shows how to wrap errors with new opaque functionality without breaking errors.Cause() or stack tracing. For my use case I've added the ability to add HTTP status codes and an alert flag. Because httpStatus and alert are opaque errors, like those in github.com/pkg/errors, they can be rewrapped with any error that implements the causer interface described in github.com/pkg/errors. 
+Given the discussion layed out here[https://dave.cheney.net/2016/04/27/dont-just-check-errors-handle-them-gracefully], there are times when a middle teir function is the best place to know what the system should do with an error. 
+
+# Solution:
+fault shows how to wrap errors with new opaque functionality without breaking errors.Cause() or stack tracing. For my use case I've added the ability to add HTTP status codes and an alert flag. Because httpStatus and alert are opaque errors, like those in github.com/pkg/errors, they can be rewrapped with any error that implements the causer interface described in github.com/pkg/errors. 
 ```golang
 type causer interface {
     Cause() error
