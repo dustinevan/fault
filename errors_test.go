@@ -76,3 +76,67 @@ func TestWithAlert(t *testing.T) {
 	assert.Contains(t, stack, "2nd wrap", "2nd wrap msg not found")
 	assert.Contains(t, stack, "fault/errors_test.go:52", "no line trace for 2nd wrap")
 }
+
+type testErrCode int
+
+const (
+	InternalError testErrCode = iota
+	BadInputData
+	DuplicateRequest
+)
+
+var (
+	system = "testing"
+	codes = []int{
+		500,
+		400,
+		409,
+	}
+	descriptions = []string{
+		"internal error",
+		"bad input data",
+		"duplicate request",
+	}
+)
+
+func (c testErrCode) System() string {
+	return system
+}
+
+func (c testErrCode) Code() int {
+	return codes[int(c)]
+}
+
+func (c testErrCode) Description() string {
+	return descriptions[int(c)]
+}
+
+func (c testErrCode) String() string {
+	return fmt.Sprintf("%s error %v, %s",system, c.Code(), c.Description())
+}
+
+func TestWithErrCode(t *testing.T) {
+	cause := errors.New("db connection error")
+	wrap1 := errors.Wrap(cause, "1st wrap")
+	withCode := WithErrCode(wrap1, DuplicateRequest)
+	wrap2 := errors.Wrap(withCode, "2nd wrap")
+	wrap3 := errors.Wrap(wrap2, "3rd wrap")
+
+	assert.Equal(t, cause, errors.Cause(wrap3))
+	errCode, ok := HasErrCode(wrap3)
+	assert.True(t, ok)
+	if errCode != DuplicateRequest {
+		assert.Fail(t, "comparison failed")
+	}
+	assert.Equal(t, DuplicateRequest, errCode)
+
+	stack := fmt.Sprintf("%+v", wrap2)
+	assert.Contains(t, stack, "db connection error", "db connection error msg not found")
+	assert.Contains(t, stack, "fault/errors_test.go:119", "no line trace for db connection error")
+	assert.Contains(t, stack, "1st wrap", "1st wrap msg not found")
+	assert.Contains(t, stack, "fault/errors_test.go:120", "no line trace for 1st wrap")
+	assert.NotContains(t, stack, "duplicate request", "err code description exists in stack trace")
+	assert.NotContains(t, stack, "fault/errors_test.go:121", "line trace for ErrCode exists")
+	assert.Contains(t, stack, "2nd wrap", "2nd wrap msg not found")
+	assert.Contains(t, stack, "fault/errors_test.go:122", "no line trace for 2nd wrap")
+}

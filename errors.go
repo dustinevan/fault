@@ -24,12 +24,6 @@ type httpStatuser interface {
 	causer
 }
 
-// if an alerter exists in the error tree, the entire error should be sent as an alert.
-type alerter interface {
-	Alert()
-	causer
-}
-
 type httpStatus struct {
 	status int
 	cause  error
@@ -80,6 +74,12 @@ func HttpStatus(err error) (int, bool) {
 	return 0, false
 }
 
+// if an alerter exists in the error tree, the entire error should be sent as an alert.
+type alerter interface {
+	Alert()
+	causer
+}
+
 type alertErr struct {
 	cause error
 }
@@ -128,4 +128,62 @@ func IsAlert(err error) bool {
 		return true
 	}
 	return false
+}
+
+type ErrCode interface {
+	System() string
+	Code() int
+	Description() string
+}
+
+type errCoder interface {
+	ErrCode() ErrCode
+}
+
+type errCode struct {
+	cause error
+	ec    ErrCode
+}
+
+func WithErrCode(err error, code ErrCode) *errCode {
+	return &errCode{
+		cause: err,
+		ec:    code,
+	}
+}
+
+func (c *errCode) Error() string {
+	return c.cause.Error()
+}
+
+func (c *errCode) Cause() error {
+	return c.cause
+}
+
+func (c *errCode) ErrCode() ErrCode {
+	return c.ec
+}
+
+func (c *errCode) Format(s fmt.State, verb rune) {
+	if err, ok := c.cause.(fmt.Formatter); ok {
+		err.Format(s, verb)
+		return
+	}
+	panic(c.cause.Error() + " does not implement the fmt.Formatter interface.")
+}
+
+func HasErrCode(err error) (ErrCode, bool) {
+	for err != nil {
+		c, ok := err.(causer)
+		if !ok {
+			return nil, false
+		}
+		e, ok := c.(errCoder)
+		if !ok {
+			err = c.Cause()
+			continue
+		}
+		return e.ErrCode(), true
+	}
+	return nil, false
 }
