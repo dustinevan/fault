@@ -2,8 +2,8 @@ package fault
 
 import (
 	"fmt"
-
 	"github.com/pkg/errors"
+	"io"
 )
 
 // This interface allows use of the Cause method via type assertion. errors created by
@@ -131,7 +131,8 @@ func IsAlert(err error) bool {
 }
 
 type ErrCode interface {
-	System() string
+	Package() string
+	Name() string
 	Code() int
 	Description() string
 }
@@ -145,15 +146,18 @@ type errCode struct {
 	ec    ErrCode
 }
 
-func WithErrCode(err error, code ErrCode) *errCode {
+func WithErrCode(err error, c ErrCode) *errCode {
+	if _, ok := err.(stackTracer); !ok {
+		err = errors.WithStack(err)
+	}
 	return &errCode{
 		cause: err,
-		ec:    code,
+		ec:    c,
 	}
 }
 
 func (c *errCode) Error() string {
-	return c.cause.Error()
+	return fmt.Sprintf("%s %v %s pkg: %s",c.ec.Name(), c.ec.Code(), c.ec.Description(), c.ec.Package()) + ": " + c.cause.Error()
 }
 
 func (c *errCode) Cause() error {
@@ -165,25 +169,52 @@ func (c *errCode) ErrCode() ErrCode {
 }
 
 func (c *errCode) Format(s fmt.State, verb rune) {
-	if err, ok := c.cause.(fmt.Formatter); ok {
-		err.Format(s, verb)
-		return
+	switch verb {
+	case 'v':
+		if s.Flag('+') {
+			fmt.Fprintf(s, "%+v", c.Cause())
+			io.WriteString(s, "\n" + fmt.Sprintf("%s %v %s pkg: %s",c.ec.Name(), c.ec.Code(), c.ec.Description(), c.ec.Package()))
+			c.cause.(stackTracer).StackTrace().Format(s, verb)
+			return
+		}
+		fallthrough
+	case 's':
+		io.WriteString(s, c.Error())
+	case 'q':
+		fmt.Fprintf(s, "%q", c.Error())
 	}
-	panic(c.cause.Error() + " does not implement the fmt.Formatter interface.")
 }
 
-func HasErrCode(err error) (ErrCode, bool) {
+func HasErrCode(err error) ErrCode {
 	for err != nil {
+		e, ok := err.(errCoder)
+		if ok {
+			return e.ErrCode()
+		}
 		c, ok := err.(causer)
 		if !ok {
-			return nil, false
+			return nil
 		}
-		e, ok := c.(errCoder)
-		if !ok {
-			err = c.Cause()
-			continue
-		}
-		return e.ErrCode(), true
+		err = c.Cause()
 	}
-	return nil, false
+	return nil
+}
+
+func AllErrCodes(err error) ([]ErrCode) {
+	codes := make([]ErrCode, 0)
+	for err != nil {
+		e, ok := err.(errCoder)
+		if ok {
+			codes = append(codes, e.ErrCode())
+		}
+		c, ok := err.(causer)
+		if !ok {
+			break
+		}
+		err = c.Cause()
+	}
+	if len(codes) == 0 {
+		return nil
+	}
+	return codes
 }
