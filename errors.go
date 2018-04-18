@@ -156,6 +156,7 @@ func WithErrCode(err error, c ErrCode) *errCode {
 	}
 }
 
+// TODO: if ErrCode implements error or string use that
 func (c *errCode) Error() string {
 	return fmt.Sprintf("%s %v %s pkg: %s",c.ec.Name(), c.ec.Code(), c.ec.Description(), c.ec.Package()) + ": " + c.cause.Error()
 }
@@ -168,6 +169,7 @@ func (c *errCode) ErrCode() ErrCode {
 	return c.ec
 }
 
+// TODO: this prints the stack 2x if the incoming error wasn't a stackTracer.
 func (c *errCode) Format(s fmt.State, verb rune) {
 	switch verb {
 	case 'v':
